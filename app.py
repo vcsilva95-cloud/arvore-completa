@@ -44,7 +44,7 @@ def arvore(p):
 
 with st.sidebar:
     st.header("Parametros do PL Unico")
-    with st.form("parametros"):
+    with st.form("form_entrada_pl", clear_on_submit=False):
         vi=st.number_input("Volume inicial de Chavantes",5754.,8795.,8000.,10.,format="%.2f")
         carga_pct=st.slider("Carga do sistema (%)",50,150,100,5)
         st.subheader("Afluencias")
@@ -57,19 +57,24 @@ with st.sidebar:
         p2o=st.slider("M2 otimista (%)",0,100,50,1)
         p3o_o=st.slider("M3 otimista dado M2 otimista (%)",0,100,50,1)
         p3o_p=st.slider("M3 otimista dado M2 pessimista (%)",0,100,50,1)
-        executar=st.form_submit_button("Executar PL Unico",use_container_width=True)
+        executar=st.form_submit_button("Executar PL Unico", use_container_width=True)
 
 p=copy.deepcopy(PARAMETROS_PADRAO);p["UHE"]["VI"]=vi;p["Carga"]={e:v*carga_pct/100 for e,v in p["Carga"].items()}
 p["Afluencias"]={"M1":a1,"M2-O":a2o,"M2-P":a2p,"M3-O":a3o,"M3-P":a3p}
 p["Probabilidades"]={"M2-O":p2o/100,"M2-P":1-p2o/100,"M3-O|M2-O":p3o_o/100,"M3-P|M2-O":1-p3o_o/100,"M3-O|M2-P":p3o_p/100,"M3-P|M2-P":1-p3o_p/100}
 
-if "resultado" not in st.session_state:
-    st.session_state.resultado=resolver_pl_unico(p);st.session_state.parametros=copy.deepcopy(p)
+if "pl_resultado" not in st.session_state:
+    st.session_state["pl_resultado"] = resolver_pl_unico(p)
+    st.session_state["pl_parametros_usados"] = copy.deepcopy(p)
+
 if executar:
     with st.spinner("Resolvendo um unico PL com todos os nos da arvore..."):
-        st.session_state.resultado=resolver_pl_unico(p);st.session_state.parametros=copy.deepcopy(p)
+        novo_resultado = resolver_pl_unico(p)
+    st.session_state["pl_resultado"] = novo_resultado
+    st.session_state["pl_parametros_usados"] = copy.deepcopy(p)
 
-r=st.session_state.resultado;pu=st.session_state.parametros
+r = st.session_state["pl_resultado"]
+pu = st.session_state["pl_parametros_usados"]
 dfn=pd.DataFrame(r["ResultadosNos"]);dfe=pd.DataFrame(r["ResumoEsperado"])
 st.title("PL Unico Estocastico - Arvore Completa")
 st.caption("Uma unica chamada ao SCIP contempla simultaneamente os 7 nos da arvore.")
