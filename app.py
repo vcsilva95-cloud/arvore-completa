@@ -62,20 +62,27 @@ p["UHE"]["VI"]=float(vi);p["Carga"]={e:v*carga_pct/100 for e,v in p["Carga"].ite
 p["Afluencias"]={"M1":a1,"M2-O":a2o,"M2-P":a2p,"M3-O":a3o,"M3-P":a3p}
 p["Probabilidades"]={"M2-O":p2o/100,"M2-P":1-p2o/100,"M3-O":p3o/100,"M3-P":1-p3o/100}
 
-# Primeira execução uma vez. Depois, só recalcula quando o botão é clicado.
-if "resultado_final_pl" not in st.session_state:
-    st.session_state["resultado_final_pl"]=resolver_pl_unico(p)
-    st.session_state["entrada_final_pl"]=copy.deepcopy(p)
-    st.session_state["contador_execucao_pl"]=1
+# O formulario envia TODOS os valores somente no clique.
+# Nao guardamos resultado antigo: o clique sempre chama o solver usando os valores submetidos.
 if executar:
-    novo=resolver_pl_unico(p)
-    st.session_state["resultado_final_pl"]=novo
-    st.session_state["entrada_final_pl"]=copy.deepcopy(p)
-    st.session_state["contador_execucao_pl"]+=1
+    with st.spinner("Executando novamente o PL Único..."):
+        r = resolver_pl_unico(p)
+    st.session_state["ultimo_resultado_exibido"] = r
+    st.session_state["ultimas_entradas_exibidas"] = copy.deepcopy(p)
+    st.session_state["numero_execucoes"] = st.session_state.get("numero_execucoes", 0) + 1
+else:
+    if "ultimo_resultado_exibido" not in st.session_state:
+        r = resolver_pl_unico(p)
+        st.session_state["ultimo_resultado_exibido"] = r
+        st.session_state["ultimas_entradas_exibidas"] = copy.deepcopy(p)
+        st.session_state["numero_execucoes"] = 1
+    else:
+        r = st.session_state["ultimo_resultado_exibido"]
 
-r=st.session_state["resultado_final_pl"]; pu=st.session_state["entrada_final_pl"]; df=pd.DataFrame(r["Resultados"])
+pu = st.session_state["ultimas_entradas_exibidas"]
+df = pd.DataFrame(r["Resultados"])
 st.title("PL Único com Probabilidades Editáveis")
-st.success(f"Execução nº {st.session_state['contador_execucao_pl']} concluída. Probabilidades usadas: M2 O={r['ProbabilidadesUsadas']['M2-O']:.0%}, M2 P={r['ProbabilidadesUsadas']['M2-P']:.0%}, M3 O={r['ProbabilidadesUsadas']['M3-O']:.0%}, M3 P={r['ProbabilidadesUsadas']['M3-P']:.0%}.")
+st.success(f"Execução nº {st.session_state['numero_execucoes']} concluída. Probabilidades usadas: M2 O={r['ProbabilidadesUsadas']['M2-O']:.0%}, M2 P={r['ProbabilidadesUsadas']['M2-P']:.0%}, M3 O={r['ProbabilidadesUsadas']['M3-O']:.0%}, M3 P={r['ProbabilidadesUsadas']['M3-P']:.0%}.")
 c1,c2,c3,c4=st.columns(4);c1.metric("Custo total",f"R$ {br(r['CustoTotal'])}");c2.metric("Afluência ponderada M2",br(r["AfluenciasPonderadas"][2]));c3.metric("Afluência ponderada M3",br(r["AfluenciasPonderadas"][3]));c4.metric("Déficit",f"{br(df.Deficit.sum())} MW")
 
 t1,t2,t3,t4=st.tabs(["Árvore de cenários","Resultado do PL Único","Reservatório único","Tabela"])
