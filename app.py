@@ -100,54 +100,59 @@ def tema(fig, titulo, eixo_y, barmode=None):
 
 with st.sidebar:
     st.header("Parametros do PL Unico")
-    vi = st.number_input("Volume inicial de Chavantes", 5754.0, 8795.0, 8000.0, 10.0, format="%.2f")
-    carga_pct = st.slider("Carga do sistema (%)", 50, 150, 100, 5)
-    st.subheader("Afluencias")
-    a1 = st.number_input("M1 conhecida", 0.0, value=2156.11, step=10.0, format="%.2f")
-    a2o = st.number_input("M2 otimista", 0.0, value=1838.59, step=10.0, format="%.2f")
-    a2p = st.number_input("M2 pessimista", 0.0, value=713.66, step=10.0, format="%.2f")
-    a3o = st.number_input("M3 otimista", 0.0, value=1674.00, step=10.0, format="%.2f")
-    a3p = st.number_input("M3 pessimista", 0.0, value=656.21, step=10.0, format="%.2f")
-    st.subheader("Probabilidades")
-    p2o_pct = st.slider("M2: cenario otimista (%)", 0, 100, 50, 1)
-    st.caption(f"M2 pessimista: {100-p2o_pct}%")
-    p3o_pct = st.slider("M3: cenario otimista (%)", 0, 100, 50, 1)
-    st.caption(f"M3 pessimista: {100-p3o_pct}%")
-    executar = st.button("Executar PL Unico", type="secondary", use_container_width=True)
+    with st.form("form_parametros", clear_on_submit=False):
+        vi = st.number_input("Volume inicial de Chavantes", 5754.0, 8795.0, 8000.0, 10.0, format="%.2f")
+        carga_pct = st.slider("Carga do sistema (%)", 50, 150, 100, 5)
+        st.subheader("Afluencias")
+        a1 = st.number_input("M1 conhecida", 0.0, value=2156.11, step=10.0, format="%.2f")
+        a2o = st.number_input("M2 otimista", 0.0, value=1838.59, step=10.0, format="%.2f")
+        a2p = st.number_input("M2 pessimista", 0.0, value=713.66, step=10.0, format="%.2f")
+        a3o = st.number_input("M3 otimista", 0.0, value=1674.00, step=10.0, format="%.2f")
+        a3p = st.number_input("M3 pessimista", 0.0, value=656.21, step=10.0, format="%.2f")
+        st.subheader("Probabilidades")
+        p2o_pct = st.slider("M2: cenario otimista (%)", 0, 100, 50, 1)
+        st.caption(f"M2 pessimista: {100-p2o_pct}%")
+        p3o_pct = st.slider("M3: cenario otimista (%)", 0, 100, 50, 1)
+        st.caption(f"M3 pessimista: {100-p3o_pct}%")
+        executar = st.form_submit_button("Executar PL Unico", use_container_width=True)
 
-p = copy.deepcopy(PARAMETROS_PADRAO)
-p["UHE"]["VI"] = vi
-p["Carga"] = {e: v*carga_pct/100 for e, v in p["Carga"].items()}
-p["Afluencias"] = {"M1": a1, "M2-O": a2o, "M2-P": a2p, "M3-O": a3o, "M3-P": a3p}
-p["Probabilidades"] = {
-    "M2-O": p2o_pct/100.0, "M2-P": 1.0-p2o_pct/100.0,
-    "M3-O": p3o_pct/100.0, "M3-P": 1.0-p3o_pct/100.0,
+p_atual = copy.deepcopy(PARAMETROS_PADRAO)
+p_atual["UHE"]["VI"] = float(vi)
+p_atual["Carga"] = {e: float(v) * carga_pct / 100.0 for e, v in p_atual["Carga"].items()}
+p_atual["Afluencias"] = {"M1": float(a1), "M2-O": float(a2o), "M2-P": float(a2p), "M3-O": float(a3o), "M3-P": float(a3p)}
+p_atual["Probabilidades"] = {
+    "M2-O": p2o_pct / 100.0, "M2-P": (100-p2o_pct) / 100.0,
+    "M3-O": p3o_pct / 100.0, "M3-P": (100-p3o_pct) / 100.0,
 }
 
 st.title("PL Unico com Afluencias Esperadas")
 st.caption("Uma decisao e um volume final por estagio: M1, M2 e M3")
 
-# Evita reaproveitar resultado antigo/incompativel do session_state.
-assinatura = repr(p)
-if executar or st.session_state.get("assinatura_modelo") != assinatura or "resultado_pl_unico" not in st.session_state:
+if "resultado_pl_unico" not in st.session_state:
+    st.session_state["parametros_pl_unico"] = copy.deepcopy(p_atual)
+    st.session_state["resultado_pl_unico"] = resolver_pl_unico(p_atual)
+
+if executar:
     try:
-        with st.spinner("Resolvendo um unico PL no SCIP..."):
-            novo_resultado = resolver_pl_unico(p)
-        st.session_state["resultado_pl_unico"] = novo_resultado
-        st.session_state["parametros_pl_unico"] = copy.deepcopy(p)
-        st.session_state["assinatura_modelo"] = assinatura
+        with st.spinner("Resolvendo o PL Unico com os novos parametros..."):
+            resultado_novo = resolver_pl_unico(p_atual)
+        st.session_state["parametros_pl_unico"] = copy.deepcopy(p_atual)
+        st.session_state["resultado_pl_unico"] = resultado_novo
     except Exception as exc:
         st.error(f"Erro ao resolver o PL: {exc}")
         st.stop()
 
 r = st.session_state["resultado_pl_unico"]
 p_usado = st.session_state["parametros_pl_unico"]
-
-# Compatibilidade defensiva: se o deploy ainda estiver com modelo.py antigo,
-# mostra mensagem legivel em vez de KeyError.
 if "CustoTotal" not in r or "Resultados" not in r:
-    st.error("O app.py e o modelo.py estao em versoes diferentes. Substitua os dois arquivos no GitHub e reinicie o app.")
+    st.error("O app.py e o modelo.py estao em versoes diferentes. Substitua os dois arquivos e reinicie o app.")
     st.stop()
+
+st.caption("Parametros efetivamente usados na ultima otimizacao:")
+st.code(
+    f"M2: {p_usado['Probabilidades']['M2-O']:.0%} otimista / {p_usado['Probabilidades']['M2-P']:.0%} pessimista | "
+    f"M3: {p_usado['Probabilidades']['M3-O']:.0%} otimista / {p_usado['Probabilidades']['M3-P']:.0%} pessimista"
+)
 
 df = pd.DataFrame(r["Resultados"])
 
