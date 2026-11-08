@@ -81,7 +81,7 @@ else:
 
 pu = st.session_state["ultimas_entradas_exibidas"]
 df = pd.DataFrame(r["Resultados"])
-st.title("PL Único com Probabilidades Editáveis")
+st.title("PL Único Árvore Completa")
 st.success(f"Execução nº {st.session_state['numero_execucoes']} concluída. Probabilidades usadas: M2 O={r['ProbabilidadesUsadas']['M2-O']:.0%}, M2 P={r['ProbabilidadesUsadas']['M2-P']:.0%}, M3 O={r['ProbabilidadesUsadas']['M3-O']:.0%}, M3 P={r['ProbabilidadesUsadas']['M3-P']:.0%}.")
 c1,c2,c3,c4=st.columns(4);c1.metric("Custo total",f"R$ {br(r['CustoTotal'])}");c2.metric("Afluência ponderada M2",br(r["AfluenciasPonderadas"][2]));c3.metric("Afluência ponderada M3",br(r["AfluenciasPonderadas"][3]));c4.metric("Déficit",f"{br(df.Deficit.sum())} MW")
 
