@@ -1,83 +1,6 @@
 # -*- coding: utf-8 -*-
-"""PL unico estocastico em arvore completa com 3 estagios."""
-from dataclasses import dataclass
-from typing import Dict, Optional
+"""PL unico de 3 estagios com decisoes unicas e afluencias esperadas."""
 from pyscipopt import Model, quicksum
-
-@dataclass(frozen=True)
-class No:
-    nome: str
-    estagio: int
-    probabilidade: float
-    afluencia: float
-    pai: Optional[str]
-    cenario: str
-
-def resolver_pl_arvore(parametros: dict):
-    uhe = parametros["UHE"]
-    utes = parametros["UTE"]
-    carga = parametros["Carga"]
-    cdef = parametros["CDef"]
-    afl = parametros["Afluencias"]
-
-    nos: Dict[str, No] = {
-        "M1": No("M1", 1, 1.00, afl["M1"], None, "Conhecido"),
-        "M2-O": No("M2-O", 2, 0.50, afl["M2-O"], "M1", "Otimista"),
-        "M2-P": No("M2-P", 2, 0.50, afl["M2-P"], "M1", "Pessimista"),
-        "M3-OO": No("M3-OO", 3, 0.25, afl["M3-O"], "M2-O", "Otimista"),
-        "M3-OP": No("M3-OP", 3, 0.25, afl["M3-P"], "M2-O", "Pessimista"),
-        "M3-PO": No("M3-PO", 3, 0.25, afl["M3-O"], "M2-P", "Otimista"),
-        "M3-PP": No("M3-PP", 3, 0.25, afl["M3-P"], "M2-P", "Pessimista"),
-    }
-
-    m = Model("PL_unico_arvore_completa")
-    m.hideOutput()
-    vf, vt, vv, deficit, gt = {}, {}, {}, {}, {}
-
-    for n in nos:
-        vf[n] = m.addVar(f"vf_{n}", lb=uhe["Vmin"], ub=uhe["Vmax"])
-        vt[n] = m.addVar(f"vt_{n}", lb=0, ub=uhe["Engol"])
-        vv[n] = m.addVar(f"vv_{n}", lb=0)
-        deficit[n] = m.addVar(f"def_{n}", lb=0)
-        for t, dados in utes.items():
-            gt[t, n] = m.addVar(f"gt_{t}_{n}", lb=0, ub=dados["Capac"])
-
-    m.setObjective(quicksum(
-        nos[n].probabilidade * (
-            quicksum(utes[t]["Custo"] * gt[t, n] for t in utes)
-            + cdef * deficit[n] + uhe["CustoVert"] * vv[n]
-        ) for n in nos
-    ), "minimize")
-
-    for n, no in nos.items():
-        entrada = uhe["VI"] if no.pai is None else vf[no.pai]
-        m.addCons(vf[n] + vt[n] + vv[n] == entrada + no.afluencia)
-        m.addCons(uhe["Prod"] * vt[n] + quicksum(gt[t, n] for t in utes)
-                  + deficit[n] == carga[no.estagio])
-
-    m.optimize()
-    if str(m.getStatus()).lower() != "optimal":
-        raise RuntimeError(f"SCIP nao encontrou solucao otima: {m.getStatus()}")
-
-    resultado = []
-    ordem = ["M1", "M2-O", "M2-P", "M3-OO", "M3-OP", "M3-PO", "M3-PP"]
-    for n in ordem:
-        no = nos[n]
-        vt_n = m.getVal(vt[n])
-        custo_n = (sum(utes[t]["Custo"] * m.getVal(gt[t, n]) for t in utes)
-                   + cdef * m.getVal(deficit[n]) + uhe["CustoVert"] * m.getVal(vv[n]))
-        resultado.append({
-            "No": n, "Estagio": no.estagio, "Pai": no.pai or "-",
-            "Cenario": no.cenario, "Probabilidade": no.probabilidade,
-            "Afluencia": no.afluencia, "VolumeFinal": m.getVal(vf[n]),
-            "VolumeTurbinado": vt_n, "VolumeVertido": m.getVal(vv[n]),
-            "GeracaoHidraulica": uhe["Prod"] * vt_n,
-            "Termobahia": m.getVal(gt["Termobahia", n]),
-            "PecemII": m.getVal(gt["PecemII", n]),
-            "Deficit": m.getVal(deficit[n]), "CustoNodal": custo_n,
-            "CustoPonderado": no.probabilidade * custo_n,
-        })
-    return {"CustoEsperado": m.getObjVal(), "Resultados": resultado}
 
 PARAMETROS_PADRAO = {
     "UHE": {"Nome": "UHE Chavantes", "Vmin": 5754.0, "Vmax": 8795.0,
@@ -90,4 +13,69 @@ PARAMETROS_PADRAO = {
     "CDef": 5969520.0,
     "Afluencias": {"M1": 2156.11, "M2-O": 1838.59, "M2-P": 713.66,
                     "M3-O": 1674.00, "M3-P": 656.21},
+    "Probabilidades": {"M2-O": 0.50, "M2-P": 0.50, "M3-O": 0.50, "M3-P": 0.50},
 }
+
+def resolver_pl_unico(parametros: dict):
+    uhe = parametros["UHE"]
+    utes = parametros["UTE"]
+    carga = parametros["Carga"]
+    cdef = parametros["CDef"]
+    afl = parametros["Afluencias"]
+    prob = parametros["Probabilidades"]
+
+    # Uma única afluência de entrada por estágio, calculada pela esperança.
+    afl_esperada = {
+        1: afl["M1"],
+        2: prob["M2-O"] * afl["M2-O"] + prob["M2-P"] * afl["M2-P"],
+        3: prob["M3-O"] * afl["M3-O"] + prob["M3-P"] * afl["M3-P"],
+    }
+
+    m = Model("PL_unico_tres_estagios")
+    m.hideOutput()
+    vf, vt, vv, deficit, gt = {}, {}, {}, {}, {}
+
+    for e in (1, 2, 3):
+        vf[e] = m.addVar(f"vf_M{e}", lb=uhe["Vmin"], ub=uhe["Vmax"])
+        vt[e] = m.addVar(f"vt_M{e}", lb=0.0, ub=uhe["Engol"])
+        vv[e] = m.addVar(f"vv_M{e}", lb=0.0)
+        deficit[e] = m.addVar(f"def_M{e}", lb=0.0)
+        for t, dados in utes.items():
+            gt[t, e] = m.addVar(f"gt_{t}_M{e}", lb=0.0, ub=dados["Capac"])
+
+    # Como há uma decisão única em cada estágio, os custos dos cenários repetidos
+    # têm a mesma variável. As probabilidades de cada estágio somam 1 e a FO
+    # reduz-se à soma dos três custos operativos esperados.
+    m.setObjective(quicksum(
+        quicksum(utes[t]["Custo"] * gt[t, e] for t in utes)
+        + cdef * deficit[e] + uhe["CustoVert"] * vv[e]
+        for e in (1, 2, 3)
+    ), "minimize")
+
+    for e in (1, 2, 3):
+        entrada = uhe["VI"] if e == 1 else vf[e - 1]
+        m.addCons(vf[e] + vt[e] + vv[e] == entrada + afl_esperada[e],
+                  name=f"balanco_hidrico_M{e}")
+        m.addCons(uhe["Prod"] * vt[e] + quicksum(gt[t, e] for t in utes)
+                  + deficit[e] == carga[e], name=f"atendimento_M{e}")
+
+    m.optimize()
+    if str(m.getStatus()).lower() != "optimal":
+        raise RuntimeError(f"SCIP não encontrou solução ótima: {m.getStatus()}")
+
+    resultados = []
+    for e in (1, 2, 3):
+        vt_e = m.getVal(vt[e])
+        custo = (sum(utes[t]["Custo"] * m.getVal(gt[t, e]) for t in utes)
+                 + cdef * m.getVal(deficit[e]) + uhe["CustoVert"] * m.getVal(vv[e]))
+        resultados.append({
+            "Estagio": f"M{e}", "AfluenciaEsperada": afl_esperada[e],
+            "VolumeFinal": m.getVal(vf[e]), "VolumeTurbinado": vt_e,
+            "VolumeVertido": m.getVal(vv[e]),
+            "GeracaoHidraulica": uhe["Prod"] * vt_e,
+            "Termobahia": m.getVal(gt["Termobahia", e]),
+            "PecemII": m.getVal(gt["PecemII", e]),
+            "Deficit": m.getVal(deficit[e]), "Carga": carga[e], "Custo": custo,
+        })
+    return {"CustoTotal": m.getObjVal(), "Resultados": resultados,
+            "AfluenciasEsperadas": afl_esperada}
