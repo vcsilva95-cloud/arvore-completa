@@ -70,15 +70,14 @@ if executar:
     st.session_state["ultimo_resultado_exibido"] = r
     st.session_state["ultimas_entradas_exibidas"] = copy.deepcopy(p)
     st.session_state["numero_execucoes"] = st.session_state.get("numero_execucoes", 0) + 1
-else:
-    if "ultimo_resultado_exibido" not in st.session_state:
-        r = resolver_pl_unico(p)
-        st.session_state["ultimo_resultado_exibido"] = r
-        st.session_state["ultimas_entradas_exibidas"] = copy.deepcopy(p)
-        st.session_state["numero_execucoes"] = 1
-    else:
-        r = st.session_state["ultimo_resultado_exibido"]
 
+# Antes do primeiro clique, o solver não é executado.
+# Depois de uma execução, o último resultado permanece visível até um novo clique.
+if "ultimo_resultado_exibido" not in st.session_state:
+    st.info("Escolha as variáveis de entrada e clique em 'Executar PL Único'.")
+    st.stop()
+
+r = st.session_state["ultimo_resultado_exibido"]
 pu = st.session_state["ultimas_entradas_exibidas"]
 df = pd.DataFrame(r["Resultados"])
 st.title("PL Único Árvore Completa")
