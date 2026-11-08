@@ -5,98 +5,188 @@ import plotly.graph_objects as go
 import streamlit as st
 from modelo import PARAMETROS_PADRAO, resolver_pl_unico
 
-st.set_page_config(page_title="PL Único - 3 Estágios", page_icon="⚡", layout="wide")
-st.markdown("""
+st.set_page_config(page_title="PL Unico - 3 Estagios", page_icon="⚡", layout="wide")
+
+# Tema claro nativo + CSS de reforco para TODOS os widgets.
+st.markdown(r"""
 <style>
-:root {color-scheme: light !important;}
-html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stHeader"] {background:#fff!important;color:#111!important;}
-[data-testid="stSidebar"], [data-testid="stSidebarContent"] {background:#f4f7fb!important;}
-.stApp *, [data-testid="stSidebar"] * {color:#111;}
-input, [data-baseweb="select"] > div, [data-baseweb="input"] > div {background:#fff!important;color:#111!important;-webkit-text-fill-color:#111!important;}
-.stButton>button {background:#fff!important;color:#111!important;border:1px solid #64748b!important;font-weight:700!important;}
-[data-testid="stMetric"] {background:#fff!important;border:1px solid #d7dee8;border-radius:10px;padding:12px;}
-.block-container {max-width:1500px;padding-top:1.5rem;}
+:root { color-scheme: light !important; }
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"],
+[data-testid="stSidebarContent"] { background-color: #FFFFFF !important; color: #000000 !important; }
+[data-testid="stSidebar"] { background-color: #F4F7FB !important; border-right: 1px solid #CBD5E1 !important; }
+.stApp *, [data-testid="stSidebar"] * { color: #000000; }
+
+/* Number input: caixa + botoes - e + */
+[data-testid="stNumberInput"] > div,
+[data-testid="stNumberInput"] div,
+[data-testid="stNumberInput"] input,
+[data-testid="stNumberInput"] button {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+[data-testid="stNumberInput"] button {
+    border-color: #94A3B8 !important;
+}
+[data-testid="stNumberInput"] button svg,
+[data-testid="stNumberInput"] button svg path {
+    fill: #000000 !important;
+    color: #000000 !important;
+    stroke: #000000 !important;
+}
+
+/* Demais inputs e seletores */
+input, textarea,
+[data-baseweb="input"], [data-baseweb="input"] > div,
+[data-baseweb="select"], [data-baseweb="select"] > div,
+[data-baseweb="popover"], [data-baseweb="menu"], [role="listbox"], [role="option"] {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+
+/* Botoes */
+.stButton > button,
+[data-testid="baseButton-primary"], [data-testid="baseButton-secondary"],
+[data-testid="stDownloadButton"] button {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    border: 1px solid #64748B !important;
+    font-weight: 700 !important;
+}
+.stButton > button:hover, [data-testid="stDownloadButton"] button:hover {
+    background-color: #EAF2FF !important;
+    color: #000000 !important;
+    border-color: #2563EB !important;
+}
+
+/* Sliders */
+[data-testid="stSlider"] * { color: #000000 !important; }
+[data-baseweb="slider"] div { color: #000000 !important; }
+
+/* Abas, metricas, tabelas, expansores e mensagens */
+[data-testid="stMetric"], [data-testid="stDataFrame"], [data-testid="stTable"],
+[data-testid="stExpander"], div[data-baseweb="tab-list"], button[role="tab"] {
+    background-color: #FFFFFF !important; color: #000000 !important;
+}
+[data-testid="stMetric"] { border: 1px solid #D7DEE8; border-radius: 10px; padding: 12px; }
+button[role="tab"][aria-selected="true"] { background-color: #DBEAFE !important; }
+
+/* Alertas: sempre claros */
+[data-testid="stAlert"] { background-color: #F8FAFC !important; color: #000000 !important; border: 1px solid #CBD5E1 !important; }
+[data-testid="stAlert"] * { color: #000000 !important; }
+
+.block-container { max-width: 1500px; padding-top: 1.5rem; }
 </style>
 """, unsafe_allow_html=True)
 
 def br(v, casas=2):
-    return f"{v:,.{casas}f}".replace(",","X").replace(".",",").replace("X",".")
+    return f"{float(v):,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def tema(fig, titulo, y):
-    fig.update_layout(title=dict(text=titulo,x=.5), paper_bgcolor="#fff", plot_bgcolor="#fff",
-        font=dict(color="#111"), height=540, barmode="stack", hovermode="x unified",
-        xaxis=dict(title="Estágio",gridcolor="#e5e7eb"),
-        yaxis=dict(title=y,gridcolor="#e5e7eb",rangemode="tozero"),
-        legend=dict(orientation="h",y=1.12,x=0), margin=dict(l=60,r=30,t=110,b=60))
+def tema(fig, titulo, eixo_y, barmode=None):
+    fig.update_layout(
+        title=dict(text=titulo, x=0.5), paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+        font=dict(color="#000000"), height=540, hovermode="x unified",
+        xaxis=dict(title="Estagio", gridcolor="#E5E7EB", color="#000000"),
+        yaxis=dict(title=eixo_y, gridcolor="#E5E7EB", color="#000000", rangemode="tozero"),
+        legend=dict(orientation="h", y=1.12, x=0, bgcolor="#FFFFFF", font=dict(color="#000000")),
+        margin=dict(l=60, r=30, t=110, b=60),
+    )
+    if barmode:
+        fig.update_layout(barmode=barmode)
     return fig
 
 with st.sidebar:
-    st.header("Parâmetros do PL Único")
-    vi = st.number_input("Volume inicial de Chavantes",5754.0,8795.0,8000.0,10.0)
-    carga_pct = st.slider("Carga do sistema (%)",50,150,100,5)
-    st.subheader("Afluências")
-    a1=st.number_input("M1 conhecida",0.0,value=2156.11,step=10.0)
-    a2o=st.number_input("M2 otimista",0.0,value=1838.59,step=10.0)
-    a2p=st.number_input("M2 pessimista",0.0,value=713.66,step=10.0)
-    a3o=st.number_input("M3 otimista",0.0,value=1674.00,step=10.0)
-    a3p=st.number_input("M3 pessimista",0.0,value=656.21,step=10.0)
+    st.header("Parametros do PL Unico")
+    vi = st.number_input("Volume inicial de Chavantes", 5754.0, 8795.0, 8000.0, 10.0, format="%.2f")
+    carga_pct = st.slider("Carga do sistema (%)", 50, 150, 100, 5)
+    st.subheader("Afluencias")
+    a1 = st.number_input("M1 conhecida", 0.0, value=2156.11, step=10.0, format="%.2f")
+    a2o = st.number_input("M2 otimista", 0.0, value=1838.59, step=10.0, format="%.2f")
+    a2p = st.number_input("M2 pessimista", 0.0, value=713.66, step=10.0, format="%.2f")
+    a3o = st.number_input("M3 otimista", 0.0, value=1674.00, step=10.0, format="%.2f")
+    a3p = st.number_input("M3 pessimista", 0.0, value=656.21, step=10.0, format="%.2f")
     st.subheader("Probabilidades")
-    p2o_pct=st.slider("M2: cenário otimista (%)",0,100,50,1)
+    p2o_pct = st.slider("M2: cenario otimista (%)", 0, 100, 50, 1)
     st.caption(f"M2 pessimista: {100-p2o_pct}%")
-    p3o_pct=st.slider("M3: cenário otimista (%)",0,100,50,1)
+    p3o_pct = st.slider("M3: cenario otimista (%)", 0, 100, 50, 1)
     st.caption(f"M3 pessimista: {100-p3o_pct}%")
-    executar=st.button("Executar PL Único",type="primary",use_container_width=True)
+    executar = st.button("Executar PL Unico", type="secondary", use_container_width=True)
 
-p=copy.deepcopy(PARAMETROS_PADRAO)
-p["UHE"]["VI"]=vi
-p["Carga"]={e:v*carga_pct/100 for e,v in p["Carga"].items()}
-p["Afluencias"]={"M1":a1,"M2-O":a2o,"M2-P":a2p,"M3-O":a3o,"M3-P":a3p}
-p["Probabilidades"]={"M2-O":p2o_pct/100,"M2-P":1-p2o_pct/100,
-                     "M3-O":p3o_pct/100,"M3-P":1-p3o_pct/100}
+p = copy.deepcopy(PARAMETROS_PADRAO)
+p["UHE"]["VI"] = vi
+p["Carga"] = {e: v*carga_pct/100 for e, v in p["Carga"].items()}
+p["Afluencias"] = {"M1": a1, "M2-O": a2o, "M2-P": a2p, "M3-O": a3o, "M3-P": a3p}
+p["Probabilidades"] = {
+    "M2-O": p2o_pct/100.0, "M2-P": 1.0-p2o_pct/100.0,
+    "M3-O": p3o_pct/100.0, "M3-P": 1.0-p3o_pct/100.0,
+}
 
-st.title("PL Único com Afluências Esperadas")
-st.caption("Uma decisão e um volume final por estágio: M1, M2 e M3")
+st.title("PL Unico com Afluencias Esperadas")
+st.caption("Uma decisao e um volume final por estagio: M1, M2 e M3")
 
-if executar or "resultado" not in st.session_state:
+# Evita reaproveitar resultado antigo/incompativel do session_state.
+assinatura = repr(p)
+if executar or st.session_state.get("assinatura_modelo") != assinatura or "resultado_pl_unico" not in st.session_state:
     try:
-        with st.spinner("Resolvendo um único PL no SCIP..."):
-            st.session_state.resultado=resolver_pl_unico(p)
-            st.session_state.parametros=p
+        with st.spinner("Resolvendo um unico PL no SCIP..."):
+            novo_resultado = resolver_pl_unico(p)
+        st.session_state["resultado_pl_unico"] = novo_resultado
+        st.session_state["parametros_pl_unico"] = copy.deepcopy(p)
+        st.session_state["assinatura_modelo"] = assinatura
     except Exception as exc:
-        st.error(str(exc)); st.stop()
+        st.error(f"Erro ao resolver o PL: {exc}")
+        st.stop()
 
-r=st.session_state.resultado
-p_usado=st.session_state.parametros
-df=pd.DataFrame(r["Resultados"])
+r = st.session_state["resultado_pl_unico"]
+p_usado = st.session_state["parametros_pl_unico"]
 
-c1,c2,c3,c4=st.columns(4)
-c1.metric("Custo total",f"R$ {br(r['CustoTotal'])}")
-c2.metric("Afluência esperada M2",br(r["AfluenciasEsperadas"][2]))
-c3.metric("Afluência esperada M3",br(r["AfluenciasEsperadas"][3]))
-c4.metric("Déficit total",f"{br(df.Deficit.sum())} MW")
+# Compatibilidade defensiva: se o deploy ainda estiver com modelo.py antigo,
+# mostra mensagem legivel em vez de KeyError.
+if "CustoTotal" not in r or "Resultados" not in r:
+    st.error("O app.py e o modelo.py estao em versoes diferentes. Substitua os dois arquivos no GitHub e reinicie o app.")
+    st.stop()
 
-aba1,aba2,aba3,aba4=st.tabs(["Resumo do despacho","Reservatório","Probabilidades","Resultados"])
+df = pd.DataFrame(r["Resultados"])
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Custo total", f"R$ {br(r['CustoTotal'])}")
+c2.metric("Afluencia esperada M2", br(r["AfluenciasEsperadas"][2]))
+c3.metric("Afluencia esperada M3", br(r["AfluenciasEsperadas"][3]))
+c4.metric("Deficit total", f"{br(df['Deficit'].sum())} MW")
+
+aba1, aba2, aba3, aba4 = st.tabs(["Resumo do despacho", "Reservatorio", "Probabilidades", "Resultados"])
+
 with aba1:
-    fig=go.Figure()
-    fig.add_bar(x=df.Estagio,y=df.GeracaoHidraulica,name="UHE Chavantes",marker_color="#6baed6")
-    fig.add_bar(x=df.Estagio,y=df.Termobahia,name="UTE Termobahia",marker_color="#ef6a6a")
-    fig.add_bar(x=df.Estagio,y=df.PecemII,name="UTE Pecém II",marker_color="#f5a04a")
-    if (df.Deficit>1e-6).any(): fig.add_bar(x=df.Estagio,y=df.Deficit,name="Déficit",marker_color="#7c3aed")
-    fig.add_scatter(x=df.Estagio,y=df.Carga,mode="lines+markers",name="Carga",
-                    line=dict(color="#111",width=3),marker=dict(size=8,color="#111"))
-    st.plotly_chart(tema(fig,"Despacho ótimo e carga - resultado do PL Único","Potência (MW)"),use_container_width=True,theme=None)
-    st.success(f"Resultado do PL Único: custo total = R$ {br(r['CustoTotal'])}")
+    fig = go.Figure()
+    fig.add_bar(x=df["Estagio"], y=df["GeracaoHidraulica"], name="UHE Chavantes", marker_color="#6BAED6")
+    fig.add_bar(x=df["Estagio"], y=df["Termobahia"], name="UTE Termobahia", marker_color="#EF6A6A")
+    fig.add_bar(x=df["Estagio"], y=df["PecemII"], name="UTE Pecem II", marker_color="#F5A04A")
+    if (df["Deficit"] > 1e-6).any():
+        fig.add_bar(x=df["Estagio"], y=df["Deficit"], name="Deficit", marker_color="#7C3AED")
+    fig.add_scatter(x=df["Estagio"], y=df["Carga"], mode="lines+markers", name="Carga",
+                    line=dict(color="#000000", width=3), marker=dict(size=8, color="#000000"))
+    st.plotly_chart(tema(fig, "Despacho otimo e carga - resultado do PL Unico", "Potencia (MW)", "stack"),
+                    use_container_width=True, theme=None)
+    st.write(f"**Resultado do PL Unico: custo total = R$ {br(r['CustoTotal'])}**")
+
 with aba2:
-    fig=go.Figure()
-    fig.add_scatter(x=df.Estagio,y=df.VolumeFinal,mode="lines+markers+text",name="Volume final",
-                    text=[br(v) for v in df.VolumeFinal],textposition="top center",line=dict(color="#2563eb",width=3))
-    st.plotly_chart(tema(fig,"Volume final único por estágio","Volume (hm³)"),use_container_width=True,theme=None)
+    fig = go.Figure()
+    fig.add_scatter(x=df["Estagio"], y=df["VolumeFinal"], mode="lines+markers+text",
+                    text=[br(v) for v in df["VolumeFinal"]], textposition="top center",
+                    name="Volume final", line=dict(color="#2563EB", width=3))
+    st.plotly_chart(tema(fig, "Volume final unico por estagio", "Volume", None),
+                    use_container_width=True, theme=None)
+
 with aba3:
-    st.latex(r"AFL^{esp}_2=p_{2,O}AFL_{2,O}+(1-p_{2,O})AFL_{2,P}")
-    st.latex(r"AFL^{esp}_3=p_{3,O}AFL_{3,O}+(1-p_{3,O})AFL_{3,P}")
+    st.latex(r"AFL^{esp}_2=p_{2,O}AFL_{2,O}+p_{2,P}AFL_{2,P}")
+    st.latex(r"AFL^{esp}_3=p_{3,O}AFL_{3,O}+p_{3,P}AFL_{3,P}")
     st.write(f"M2: {p_usado['Probabilidades']['M2-O']:.0%} otimista e {p_usado['Probabilidades']['M2-P']:.0%} pessimista.")
     st.write(f"M3: {p_usado['Probabilidades']['M3-O']:.0%} otimista e {p_usado['Probabilidades']['M3-P']:.0%} pessimista.")
-    st.warning("Com uma única decisão por estágio, ponderar na função objetivo custos idênticos de cenários faz as probabilidades somarem 1. Por isso, as probabilidades alteram efetivamente o PL por meio das afluências esperadas nos balanços hídricos.")
+
 with aba4:
-    st.dataframe(df,use_container_width=True,hide_index=True)
-    st.download_button("Baixar resultados em CSV",df.to_csv(index=False).encode("utf-8-sig"),"resultado_pl_unico.csv","text/csv",use_container_width=True)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.download_button("Baixar resultados em CSV", df.to_csv(index=False).encode("utf-8-sig"),
+                       "resultado_pl_unico.csv", "text/csv", use_container_width=True)
